@@ -1,4 +1,3 @@
-import Crypto from 'nuxt-vuex-localstorage/plugins/crypto'
 import expire from 'nuxt-vuex-localstorage/plugins/bindStorage/expire'
 import Vue from 'vue'
 Vue.prototype.$localStorageLoaded = false
@@ -8,7 +7,6 @@ export default async (ctx, options = {}) => {
   const storageFunction = require('nuxt-vuex-localstorage/plugins/bindStorage/storageFunction')(options.mode)
   if (options.expireHours) storageFunction.setExpire(options.expireHours)
   const store = ctx.store
-  const crypto = await new Crypto(options, ctx)
   let localStoreNames = options.localStorage || ['localStorage']
   if (typeof options.localStorage === 'string') localStoreNames = [options.localStorage]
   let sessionStoreNames = options.sessionStorage || ['sessionStorage']
@@ -26,7 +24,7 @@ export default async (ctx, options = {}) => {
 
   const watchFunction = (type, i, val) => {
     const data = JSON.stringify(expire.create(val))
-    storageFunction[type].set(storeNames[type][i], crypto.encrypt(data))
+    storageFunction[type].set(storeNames[type][i], data)
   }
 
   const watcher = (type, name, i) => {
@@ -36,7 +34,7 @@ export default async (ctx, options = {}) => {
   }
   
   const bindStorage = (type, name, i) => {
-    const persist = JSON.parse(crypto.decrypt(storageFunction[type].get(name)))
+    const persist = JSON.parse(storageFunction[type].get(name))
     let data = { ...store.state }
     const expireChecked = expire.check(persist)
     if (store.state[name] && expireChecked[versionPropName] === store.state[name][versionPropName])
@@ -56,7 +54,7 @@ export default async (ctx, options = {}) => {
     window.addEventListener('storage', (event) => {
       if (event && event.storageArea === localStorage && Object.keys(store.state).indexOf(event.key) >= 0) {
         let data = { ...store.state }
-        data[event.key] = expire.check(JSON.parse(crypto.decrypt(event.newValue)))
+        data[event.key] = expire.check(JSON.parse(event.newValue))
         if (JSON.stringify(data) !== JSON.stringify(store.state))
           store.replaceState(data)
       }
@@ -67,7 +65,7 @@ export default async (ctx, options = {}) => {
   switch (options.mode) {
     case 'manual':
       watchOtherBrowsersLocalStorage()
-      Vue.prototype.$setWebStorageKey = (key, salt, keyMixTimes, keyLength) => crypto.setKey(key, salt, keyMixTimes, keyLength)
+      Vue.prototype.$setWebStorageKey = (key, salt, keyMixTimes, keyLength) => key
       let localStorageStatusWatchers = []
       storeNames['local'].forEach((name, i) => {
         localStorageStatusWatchers.push(store.watch(state => { return state[name].status }, val => {
