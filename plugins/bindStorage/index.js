@@ -34,19 +34,28 @@ export default async (ctx, options = {}) => {
   }
   
   const bindStorage = (type, name, i) => {
-    const persist = JSON.parse(storageFunction[type].get(name))
-    let data = { ...store.state }
-    const expireChecked = expire.check(persist)
-    if (store.state[name] && expireChecked[versionPropName] === store.state[name][versionPropName])
-      data[name] = { ...data[name], ...expireChecked, status: true }
-    store.replaceState(data)
+    try {
+      const persist = JSON.parse(storageFunction[type].get(name))
 
-    storeNames[type].forEach((name, i) => {
-      watchHandlers[type][i] = watcher(type, name, i)
-    })
-    if (i == storeNames[type].length - 1) {
-      if (type == 'local') Vue.prototype.$localStorageLoaded = true
-      if (type == 'session') Vue.prototype.$sessionStorageLoaded = true
+      let data = { ...store.state }
+      const expireChecked = expire.check(persist)
+      if (store.state[name] && expireChecked[versionPropName] === store.state[name][versionPropName])
+        data[name] = { ...data[name], ...expireChecked, status: true }
+      store.replaceState(data)
+
+      storeNames[type].forEach((name, i) => {
+        watchHandlers[type][i] = watcher(type, name, i)
+      })
+      if (i == storeNames[type].length - 1) {
+        if (type == 'local') Vue.prototype.$localStorageLoaded = true
+        if (type == 'session') Vue.prototype.$sessionStorageLoaded = true
+      }
+    } catch (error) {
+      if (type == 'local') {
+        localStorage.removeItem(name)
+      }
+
+      //console.error(error)
     }
   }
 
